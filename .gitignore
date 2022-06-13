@@ -1,0 +1,11 @@
+5LSL0-Datasets/
+Fast_MRI_Knee/
+venv/
+.venv/
+.DS_Store
+.ipynb_checkpoints
+__pycache__
+dc_img/
+*.pth
+*.png
+*.tar
