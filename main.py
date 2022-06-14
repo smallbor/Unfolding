@@ -81,10 +81,11 @@ for i in range(10):
     if i == 4:
         plt.title('Clean', fontsize=17)
     plt.axis(False)
-    
+plt.savefig("Exercise_Result/ISTA")
 
 # %%
 # LISTA 
+mu = 0.01
 lista = Unfolding.LISTA(K).to(device=device, dtype=torch.float32)
 optimizer = torch.optim.Adam(lista.parameters(), lr=mu)
 mse = torch.nn.MSELoss()
@@ -113,7 +114,7 @@ plt.xlabel("Epochs")
 plt.ylabel("Loss")
 plt.title("Training Loss of LISTA")
 plt.tight_layout()
-plt.savefig("LISTA_training_loss.png",dpi=300,bbox_inches='tight')
+plt.savefig("Exercise_Result/LISTA_training_loss.png",dpi=300,bbox_inches='tight')
 plt.show()
 lista = lista.to(torch.device('cpu'))
 torch.save(lista, './LISTA.pth')
@@ -145,6 +146,6 @@ for i in range(10):
     plt.yticks([])
 
 plt.tight_layout()
-plt.savefig("LISTA.png",dpi=300,bbox_inches='tight')
+plt.savefig("Exercise_Result/LISTA.png",dpi=300,bbox_inches='tight')
 plt.show()
 # %%

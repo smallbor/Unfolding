@@ -24,3 +24,24 @@ class LISTA(nn.Module):
             x = x + (torch.sqrt((x-self.shrinkage[id])**2 + 1) - torch.sqrt((x + self.shrinkage[id])**2 + 1)) / 2
     
         return x
+
+class ConvNet(nn.Module):
+    def __init__(self) -> None:
+        super(ConvNet,self).__init__()
+
+        self.conv = nn.Sequential(
+            nn.Conv2d(1,16,padding=1,kernel_size=3),
+            nn.BatchNorm2d(16),
+            nn.ReLU(),
+            nn.Conv2d(16,64,padding=1,kernel_size=3),
+            nn.BatchNorm2d(64),
+            nn.ReLU(),
+            nn.Conv2d(64,16,padding=1,kernel_size=3),
+            nn.BatchNorm2d(16),
+            nn.ReLU(),
+            nn.Conv2d(16,1,padding=1,kernel_size=3),
+        )
+
+    def forward(self,x):
+        x = self.conv(x)
+        return x
