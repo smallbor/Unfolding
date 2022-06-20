@@ -83,6 +83,13 @@ for i in range(10):
     plt.axis(False)
 plt.savefig("Exercise_Result/ISTA")
 
+mse= torch.nn.MSELoss()
+ISTA_mse = 0
+for denoised, clean in zip(x_denoised,x_clean_example.squeeze()):
+    loss = mse(denoised,clean)
+    ISTA_mse+=loss.data
+ISTA_mse = ISTA_mse/len(x_denoised)
+print(ISTA_mse)
 # %%
 # LISTA 
 mu = 0.01
@@ -122,6 +129,7 @@ torch.save(lista, './LISTA.pth')
 # showing LISTA denoise result
 lista = torch.load("LISTA.pth")
 output_data = lista(x_noisy_example)
+test_loss = torch.nn.MSELoss()
 plt.figure(figsize=(15,5))
 for i in range(10):
     plt.subplot(3,10,i+1)

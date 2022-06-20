@@ -8,8 +8,9 @@ import matplotlib.pyplot as plt
 # local imports
 import MNIST_dataloader
 import Fast_MRI_dataloader
+from Fast_MRI_utility import *
 # Model
-import Unfolding
+from Unfolding import *
 # %% set torches random seed
 torch.random.manual_seed(0)
 # %% Using host or device
@@ -19,13 +20,11 @@ else:
     device = torch.device('cpu')
 print("Device: ",device)
 
-# %%
 # %% preperations
-# define parameters
-data_loc = '5LSL0-Datasets' #change the data location to something that works for you
-batch_size = 64
+# mu
+mu =1 
 # hyperparamter for lambda
-shrinkage = 2e-5
+shrinkage = 0.01
 # iteration number
 K = 3
 # epoch
@@ -36,41 +35,47 @@ batch_size = 2
 
 train_loader, test_loader = Fast_MRI_dataloader.create_dataloaders(data_loc, batch_size)
 # %%
-# Accerlerated MRI Function
-def kspace(img):
-    """
-    Create kspace by using FT
-    """
-    # shift (0,0) (2pi,0) (0,2pi) (2pi,2pi) to (1pi,1pi)
-    output = img.clone()
-    output = torch.fft.fft2(output)
-    print(len(output))
-    for index in range(len(output)):
-        output[index] = torch.fft.fftshift(output[index])
-    return output
-
-def partial_kspace(img, mask):
-    """
-    Element-wise multiplication with kspace and mask
-    """
-    output = torch.mul(img,mask)
-    return output
-
-def recreate_MRI(img):
-    """
-    Reconstruct MRI image by using inverse FT
-    """
-    #output = torch.fft.ifft2(torch.fft.ifftshift(img))
-    output = img.clone()
-    for index in range(len(output)):
-        output[index] = torch.fft.ifft2(torch.fft.ifftshift(output[index]))
-    return output
-# %%
 # take a random batch from dataloader
 kp, m, gt_data= next(iter(train_loader))
 gt_kspace = kspace(gt_data)
 gt_partial_kspace = partial_kspace(gt_kspace,m)
 recreate_data = recreate_MRI(gt_partial_kspace)
+# %%
+# Visualize ground true and kspace
+plt.figure(figsize=(10,10))
+for i in range(len(gt_data)):
+    plt.subplot(len(gt_data),2 ,i*2+1)
+    plt.imshow(gt_data[i,:,:], cmap='gray')
+    plt.xticks([])
+    plt.yticks([])
+    if(i==0):
+        plt.title('Ground truth',fontsize=20)
+
+    plt.subplot(len(gt_kspace),2 ,i*2+2)
+    plt.imshow(gt_kspace[i,:,:].abs().log(), vmin=-2.3, interpolation='nearest')
+    plt.xticks([])
+    plt.yticks([])
+    if(i==0):
+        plt.title('K-space',fontsize=20)
+plt.savefig("Exercise_Result/Exercise3_a")
+# %%
+# Visualize partial kspace and accerlated MRI
+plt.figure(figsize=(10,10))
+for i in range(batch_size):
+    plt.subplot(batch_size,2 ,i*2+1)
+    plt.imshow((gt_partial_kspace[i,:,:].abs()+0.0001).log(), vmin=-2.3, interpolation='nearest')
+    plt.xticks([])
+    plt.yticks([])
+    if(i==0):
+        plt.title('Ground truth',fontsize=20)
+
+    plt.subplot(batch_size,2 ,i*2+2)
+    plt.imshow(recreate_data[i,:,:].abs(), cmap='gray')
+    plt.xticks([])
+    plt.yticks([])
+    if(i==0):
+        plt.title('Accerlerated MRI',fontsize=20)
+plt.savefig("Exercise_Result/Exercise3_c")
 # %%
 # Visualize the process of accerlerated MRI
 plt.figure(figsize = (25,10))
@@ -109,11 +114,39 @@ for i in range(len(gt_data)):
     plt.yticks([])
     if(i==0):
         plt.title('Recreate MRI image',fontsize=20)
-plt.savefig("Exercise_Result/Exercise3")
+plt.savefig("Exercise_Result/Exercise3_d")
 plt.show()
 # %%
+# MRI ISTA
+shrinkage = 0.1
+MRI_ISTA = ISTA_MRI(kp, m, mu, K=1000,shrinkage= shrinkage)
+
+plt.figure(figsize=(10,10))
+for i in range(len(gt_data)):
+    plt.subplot(batch_size,3 ,i*3+1)
+    plt.imshow(gt_data[i,:,:], cmap='gray')
+    plt.xticks([])
+    plt.yticks([])
+    if(i==0):
+        plt.title('Ground truth',fontsize=20)
+
+    plt.subplot(batch_size,3 ,i*3+2)
+    plt.imshow(recreate_data[i,:,:].abs(), cmap='gray')
+    plt.xticks([])
+    plt.yticks([])
+    if(i==0):
+        plt.title('Acc MRI',fontsize=20)    
+
+    plt.subplot(batch_size,3 ,i*3+3)
+    plt.imshow(MRI_ISTA[i,:,:].abs(), cmap='gray')
+    plt.xticks([])
+    plt.yticks([])
+    if(i==0):
+        plt.title('ISTA MRI',fontsize=20)
+plt.savefig("Exercise_Result/Exercise4")
+# %%
 # ConvNet
-def Evaluation(model:Unfolding.ConvNet, dataloader) -> float:
+def Evaluation(model:ConvNet, dataloader) -> float:
     mse = torch.nn.MSELoss()
     total_loss = 0
     print("Evaluating the model with test set...")
@@ -125,7 +158,7 @@ def Evaluation(model:Unfolding.ConvNet, dataloader) -> float:
     print("Test set MSE loss:{:.4f}".format(total_loss/len(dataloader)))
     return total_loss/len(dataloader)
 
-convnet = Unfolding.ConvNet()
+convnet = ConvNet()
 optimizer = torch.optim.Adam(convnet.parameters(), lr=0.01)
 mse = torch.nn.MSELoss()
 # train
@@ -189,3 +222,6 @@ with torch.no_grad():
         plt.yticks([])
 plt.savefig("Exercise_Result/Exercise5_evaluation")
 # %%
+# Neural proximal gradient descent
+
+
