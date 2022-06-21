@@ -119,31 +119,48 @@ plt.show()
 # %%
 # MRI ISTA
 shrinkage = 0.1
-MRI_ISTA = ISTA_MRI(kp, m, mu, K=1000,shrinkage= shrinkage)
+#MRI_ISTA = ISTA_MRI(kp, m, mu, K=1000,shrinkage= shrinkage)
 
-plt.figure(figsize=(10,10))
-for i in range(len(gt_data)):
-    plt.subplot(batch_size,3 ,i*3+1)
-    plt.imshow(gt_data[i,:,:], cmap='gray')
+plt.figure(figsize=(15,9))
+for i in range(5):
+    test_ksp = torch.tensor(test_loader.dataset[i][0])
+    mask = torch.tensor(test_loader.dataset[i][1])
+    test_gt = torch.tensor(test_loader.dataset[i][2])
+    plt.subplot(3, 5, i+1)
+    recst_partial_ksp = recreate_MRI(test_ksp.unsqueeze(0))
+    plt.imshow(recst_partial_ksp[0,:,:].abs(),cmap='gray')
     plt.xticks([])
     plt.yticks([])
-    if(i==0):
-        plt.title('Ground truth',fontsize=20)
+    if i == 2:
+        plt.title('Initial Reconstruction', fontsize=17)
+    plt.axis(False)
 
-    plt.subplot(batch_size,3 ,i*3+2)
-    plt.imshow(recreate_data[i,:,:].abs(), cmap='gray')
+    plt.subplot(3, 5, i+6)
+    MRI_ISTA = ISTA_MRI(test_ksp.unsqueeze(0), m, mu, K=1000, shrinkage= shrinkage)
+    plt.imshow(MRI_ISTA[0,:,:].squeeze(1).abs(),cmap='gray')
     plt.xticks([])
     plt.yticks([])
-    if(i==0):
-        plt.title('Acc MRI',fontsize=20)    
+    if i == 2:
+        plt.title('ISTA Result', fontsize=17)
+    plt.axis(False)
 
-    plt.subplot(batch_size,3 ,i*3+3)
-    plt.imshow(MRI_ISTA[i,:,:].abs(), cmap='gray')
+    plt.subplot(3, 5, i+11)
+    plt.imshow(test_gt[:,:],cmap='gray')
     plt.xticks([])
     plt.yticks([])
-    if(i==0):
-        plt.title('ISTA MRI',fontsize=20)
+    if i == 2:
+        plt.title('Ground True', fontsize=17)
+    plt.axis(False)
 plt.savefig("Exercise_Result/Exercise4")
+# %%
+# ISTA MRI MSE
+mse = torch.nn.MSELoss()
+total_loss = 0
+for batch_idx,(ksp,mask,gt) in enumerate(tqdm(test_loader)):
+    MRI_ISTA = ISTA_MRI(ksp, m, mu, K=1000, shrinkage= shrinkage)
+    loss = mse(MRI_ISTA.abs(), gt)
+    total_loss += loss.data
+print("Test set MSE loss:{:.4f}".format(total_loss/len(test_loader)))
 # %%
 # ConvNet
 def Evaluation(model:ConvNet, dataloader) -> float:
@@ -203,6 +220,67 @@ plt.show()
 # Evalution Convnet with the previous random batch
 convnet = torch.load("./ConvNet.pth")
 result = convnet(recreate_data.abs().unsqueeze(1)).squeeze()
+plt.figure(figsize=(15,9))
+with torch.no_grad():
+    for i in range(5):
+        test_ksp = torch.tensor(test_loader.dataset[i][0])
+        mask = torch.tensor(test_loader.dataset[i][1])
+        test_gt = torch.tensor(test_loader.dataset[i][2])
+        plt.subplot(3, 5, i+1)
+        recst_partial_ksp = recreate_MRI(test_ksp.unsqueeze(0))
+        plt.imshow(recst_partial_ksp[0,:,:].abs(),cmap='gray')
+        plt.xticks([])
+        plt.yticks([])
+        if i == 2:
+            plt.title('Initial Reconstruction', fontsize=17)
+        plt.axis(False)
+
+        plt.subplot(3, 5, i+6)
+        MRI_ConvNet = convnet(recst_partial_ksp.abs().unsqueeze(1)).squeeze()
+        plt.imshow(MRI_ConvNet[:,:].abs(),cmap='gray')
+        plt.xticks([])
+        plt.yticks([])
+        if i == 2:
+            plt.title('ConvNet Result', fontsize=17)
+        plt.axis(False)
+
+        plt.subplot(3, 5, i+11)
+        plt.imshow(test_gt[:,:],cmap='gray')
+        plt.xticks([])
+        plt.yticks([])
+        if i == 2:
+            plt.title('Ground True', fontsize=17)
+        plt.axis(False)
+    plt.savefig("Exercise_Result/Exercise5_c")
+
+# %%
+# Neural proximal gradient descent
+
+lista_MRI = LISTA_MRI(K=5, mu=mu)
+optimizer = torch.optim.Adam(lista_MRI.parameters(), lr=0.01)
+mse = torch.nn.MSELoss()
+data_loss = []
+no_epochs = 3
+# training 
+for epoch in range(no_epochs):
+    total_loss = 0
+    for batch_idx,(ksp,mask,gt) in enumerate(tqdm(train_loader)):
+        optimizer.zero_grad()
+        # ===forward===
+        ksp = ksp.to(device=device, dtype=torch.float32)
+        output = lista_MRI(ksp, mask)
+        loss = mse(output.abs(),gt)
+        # ===backward===
+        loss.backward()
+        optimizer.step()
+        total_loss += loss.data
+    print("epoch [{}/{}],MSE loss:{:.4f}".format(epoch+1,no_epochs,total_loss/len(train_loader)))
+    data_loss.append(total_loss/len(train_loader))
+torch.save(lista_MRI,"./LISTA_MRI.pth")
+# %%
+
+lista_MRI = torch.load("./LISTA_MRI.pth")
+result = lista_MRI(kp,m)
 plt.figure(figsize = (30,15))
 with torch.no_grad():
     for i in range(len(result)):
@@ -220,8 +298,7 @@ with torch.no_grad():
         plt.imshow(result[i,:,:].abs(),cmap='gray')
         plt.xticks([])
         plt.yticks([])
-plt.savefig("Exercise_Result/Exercise5_evaluation")
 # %%
-# Neural proximal gradient descent
 
 
+# %%
